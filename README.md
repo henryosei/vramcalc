@@ -30,7 +30,14 @@ curl -s localhost:8000/models | jq
 curl -s -X POST localhost:8000/estimate \
   -H 'content-type: application/json' \
   -d '{"preset": "llama-3.1-70b", "weight_dtype": "int4", "batch_size": 8}' | jq
+
+# capacity planning: how many concurrent 8k-context requests fit?
+curl -s -X POST localhost:8000/max-batch \
+  -H 'content-type: application/json' \
+  -d '{"preset": "llama-3.1-8b", "gpu": "A100 (80 GB)"}' | jq
 ```
+
+`/max-batch` inverts the estimate: solve `(weights + kv_per_seq x batch) x (1 + overhead) + cuda_context <= vram` for batch. Llama-3.1-8B fp16 at 8k context on an 80 GB A100 → 57 concurrent requests.
 
 Interactive docs at http://localhost:8000/docs.
 

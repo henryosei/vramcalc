@@ -55,6 +55,26 @@ def kv_cache_gib(
     return bytes_total / GIB
 
 
+def max_batch_size(
+    spec: ModelSpec,
+    weight_dtype: Dtype,
+    kv_dtype: Dtype,
+    context_length: int,
+    vram_gib: float,
+) -> int:
+    """Largest batch that fits: invert the estimate() budget for batch.
+
+    total = (weights + kv_per_seq * batch) * (1 + overhead) + cuda_context <= vram
+    =>  batch <= ((vram - cuda_context) / (1 + overhead) - weights) / kv_per_seq
+    """
+    weights = weights_gib(spec.params_billion, weight_dtype)
+    kv_per_seq = kv_cache_gib(spec, context_length, batch_size=1, dtype=kv_dtype)
+    available_for_kv = (vram_gib - CUDA_CONTEXT_GIB) / (1 + OVERHEAD_FRACTION) - weights
+    if available_for_kv <= 0:
+        return 0
+    return int(available_for_kv / kv_per_seq)
+
+
 def estimate(
     spec: ModelSpec,
     weight_dtype: Dtype,

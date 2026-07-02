@@ -8,6 +8,9 @@ from vramcalc.models import ModelSpec
 LLAMA_8B = ModelSpec(
     name="llama-3.1-8b", params_billion=8.03, num_layers=32, num_kv_heads=8, head_dim=128
 )
+LLAMA_70B = ModelSpec(
+    name="llama-3.1-70b", params_billion=70.6, num_layers=80, num_kv_heads=8, head_dim=128
+)
 
 
 def test_weights_fp16():
@@ -56,6 +59,37 @@ def test_llama8b_fp16_fits_on_24gb_gpu():
     )
     a10g = next(f for f in result.gpu_fits if f.gpu.startswith("A10G"))
     assert a10g.fits
+
+
+def test_max_batch_llama8b_fp16_8k_on_80gb_is_57():
+    # available = (80 - 0.75) / 1.1 - 14.96 = 57.09 GiB; kv per request = 1 GiB
+    assert (
+        calc.max_batch_size(
+            LLAMA_8B, weight_dtype="fp16", kv_dtype="fp16", context_length=8192, vram_gib=80.0
+        )
+        == 57
+    )
+
+
+def test_max_batch_is_tight_boundary():
+    # The returned batch must fit; one more must not.
+    n = calc.max_batch_size(
+        LLAMA_8B, weight_dtype="fp16", kv_dtype="fp16", context_length=8192, vram_gib=80.0
+    )
+    fits = calc.estimate(LLAMA_8B, "fp16", "fp16", 8192, batch_size=n)
+    overflows = calc.estimate(LLAMA_8B, "fp16", "fp16", 8192, batch_size=n + 1)
+    assert fits.total_gib <= 80.0
+    assert overflows.total_gib > 80.0
+
+
+def test_max_batch_zero_when_weights_alone_dont_fit():
+    # 70B fp16 weights = ~131 GiB; no batch fits on a 24 GB card
+    assert (
+        calc.max_batch_size(
+            LLAMA_70B, weight_dtype="fp16", kv_dtype="fp16", context_length=8192, vram_gib=24.0
+        )
+        == 0
+    )
 
 
 def test_llama8b_fp16_large_batch_does_not_fit_24gb():

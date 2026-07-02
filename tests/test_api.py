@@ -56,6 +56,34 @@ def test_missing_preset_and_spec_is_422():
     assert resp.status_code == 422
 
 
+def test_max_batch_with_gpu_name():
+    resp = client.post(
+        "/max-batch", json={"preset": "llama-3.1-8b", "gpu": "A100 (80 GB)"}
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["max_batch_size"] == 57
+    assert body["vram_gib"] == 80.0
+
+
+def test_max_batch_with_custom_vram():
+    resp = client.post(
+        "/max-batch", json={"preset": "llama-3.1-8b", "vram_gib": 80.0}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["max_batch_size"] == 57
+
+
+def test_max_batch_unknown_gpu_is_404():
+    resp = client.post("/max-batch", json={"preset": "llama-3.1-8b", "gpu": "TPU v9"})
+    assert resp.status_code == 404
+
+
+def test_max_batch_requires_gpu_or_vram():
+    resp = client.post("/max-batch", json={"preset": "llama-3.1-8b"})
+    assert resp.status_code == 422
+
+
 def test_negative_context_rejected_by_validation():
     resp = client.post(
         "/estimate", json={"preset": "llama-3.1-8b", "context_length": -1}

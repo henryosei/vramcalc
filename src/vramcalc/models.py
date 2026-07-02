@@ -28,6 +28,26 @@ class EstimateRequest(BaseModel):
     batch_size: int = Field(default=1, gt=0)
 
 
+class MaxBatchRequest(BaseModel):
+    """Capacity planning: how many concurrent requests fit on a given GPU?"""
+
+    preset: str | None = None
+    spec: ModelSpec | None = None
+    gpu: str | None = None
+    vram_gib: float | None = Field(default=None, gt=0)
+    weight_dtype: Dtype = "fp16"
+    kv_dtype: Dtype = "fp16"
+    context_length: int = Field(default=8192, gt=0)
+
+
+class MaxBatchResponse(BaseModel):
+    model: str
+    vram_gib: float
+    max_batch_size: int
+    weights_gib: float
+    kv_per_request_gib: float
+
+
 class GpuFit(BaseModel):
     gpu: str
     vram_gib: float
