@@ -59,9 +59,10 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build and push (multi-arch)
         run: |
           IMAGE=ghcr.io/${{ github.repository_owner }}/vramcalc
-          docker build -t "$IMAGE:latest" -t "$IMAGE:${{ github.sha }}" .
-          docker push --all-tags "$IMAGE"
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            -t "$IMAGE:latest" -t "$IMAGE:${{ github.sha }}" --push .
