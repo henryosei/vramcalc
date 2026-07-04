@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: backend
+  name: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: backend
+    spec:
+      containers:
+      - image: ghcr.io/henryosei/vramcalc:2f009c0f0b368973eb9fcd03a9416bfa0f4f0a9c
+        name: vramcalc
+        resources: 
+          requests:
+            memory: "100Mi"
+          limits:
+            memory: "100Mi"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8000
+        readinessProbe:  
+          httpGet:
+            path: /healthz
+            port: 8000
+status: {}
