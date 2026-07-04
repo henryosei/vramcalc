@@ -2,8 +2,17 @@
 
 import pytest
 
-from vramcalc import calc
+from vramcalc import calc, config
 from vramcalc.models import ModelSpec
+
+
+@pytest.fixture
+def fresh_settings():
+    """Settings are cached for the process lifetime (matching how K8s injects
+    env at container start); clear around tests that mutate the environment."""
+    config.get_settings.cache_clear()
+    yield
+    config.get_settings.cache_clear()
 
 LLAMA_8B = ModelSpec(
     name="llama-3.1-8b", params_billion=8.03, num_layers=32, num_kv_heads=8, head_dim=128
@@ -59,6 +68,24 @@ def test_llama8b_fp16_fits_on_24gb_gpu():
     )
     a10g = next(f for f in result.gpu_fits if f.gpu.startswith("A10G"))
     assert a10g.fits
+
+
+def test_overhead_fraction_configurable_via_env(monkeypatch, fresh_settings):
+    monkeypatch.setenv("VRAMCALC_OVERHEAD_FRACTION", "0.25")
+    result = calc.estimate(LLAMA_8B, "fp16", "fp16", 8192, batch_size=1)
+    # overhead = cuda_context + (weights + kv) * 0.25 = 0.75 + 15.96 * 0.25
+    assert result.overhead_gib == pytest.approx(0.75 + (14.96 + 1.0) * 0.25, abs=0.02)
+
+
+def test_cuda_context_configurable_via_env(monkeypatch, fresh_settings):
+    monkeypatch.setenv("VRAMCALC_CUDA_CONTEXT_GIB", "2.0")
+    result = calc.estimate(LLAMA_8B, "fp16", "fp16", 8192, batch_size=1)
+    assert result.overhead_gib == pytest.approx(2.0 + (14.96 + 1.0) * 0.10, abs=0.02)
+
+
+def test_defaults_unchanged_without_env(fresh_settings):
+    result = calc.estimate(LLAMA_8B, "fp16", "fp16", 8192, batch_size=1)
+    assert result.overhead_gib == pytest.approx(0.75 + (14.96 + 1.0) * 0.10, abs=0.02)
 
 
 def test_max_batch_llama8b_fp16_8k_on_80gb_is_57():

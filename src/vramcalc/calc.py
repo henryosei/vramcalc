@@ -6,6 +6,7 @@ The serving memory budget is three parts:
   3. overhead     = CUDA context + activations + fragmentation (rule of thumb, not exact)
 """
 
+from vramcalc.config import get_settings
 from vramcalc.models import Dtype, EstimateResponse, GpuFit, ModelSpec
 
 GIB = 1024**3
@@ -30,10 +31,7 @@ COMMON_GPUS: dict[str, float] = {
     "H100 (80 GB)": 80,
 }
 
-# Fixed CUDA context cost plus a fractional buffer for activations and
-# allocator fragmentation. Deliberately conservative; real usage varies by engine.
-CUDA_CONTEXT_GIB = 0.75
-OVERHEAD_FRACTION = 0.10
+# Overhead model constants now live in config.Settings (env-overridable).
 
 
 def weights_gib(params_billion: float, dtype: Dtype) -> float:
@@ -67,9 +65,10 @@ def max_batch_size(
     total = (weights + kv_per_seq * batch) * (1 + overhead) + cuda_context <= vram
     =>  batch <= ((vram - cuda_context) / (1 + overhead) - weights) / kv_per_seq
     """
+    s = get_settings()
     weights = weights_gib(spec.params_billion, weight_dtype)
     kv_per_seq = kv_cache_gib(spec, context_length, batch_size=1, dtype=kv_dtype)
-    available_for_kv = (vram_gib - CUDA_CONTEXT_GIB) / (1 + OVERHEAD_FRACTION) - weights
+    available_for_kv = (vram_gib - s.cuda_context_gib) / (1 + s.overhead_fraction) - weights
     if available_for_kv <= 0:
         return 0
     return int(available_for_kv / kv_per_seq)
@@ -82,9 +81,10 @@ def estimate(
     context_length: int,
     batch_size: int,
 ) -> EstimateResponse:
+    s = get_settings()
     weights = weights_gib(spec.params_billion, weight_dtype)
     kv = kv_cache_gib(spec, context_length, batch_size, kv_dtype)
-    overhead = CUDA_CONTEXT_GIB + (weights + kv) * OVERHEAD_FRACTION
+    overhead = s.cuda_context_gib + (weights + kv) * s.overhead_fraction
     total = weights + kv + overhead
     return EstimateResponse(
         model=spec.name,

@@ -18,8 +18,11 @@ spec:
         app: backend
     spec:
       containers:
-      - image: ghcr.io/henryosei/vramcalc:2f009c0f0b368973eb9fcd03a9416bfa0f4f0a9c
+      - image: ghcr.io/henryosei/vramcalc:fafb5144f876fe0925b2dda4614765ddce367e6b
         name: vramcalc
+        envFrom:
+        - configMapRef:
+             name: modelconfig
         resources: 
           requests:
             memory: "100Mi"
