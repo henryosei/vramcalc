@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  VRAMCALC_CUDA_CONTEXT_GIB: "0.75"
+  VRAMCALC_OVERHEAD_FRACTION: "0.25"
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  name: modelconfig

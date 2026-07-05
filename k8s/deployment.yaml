@@ -18,7 +18,7 @@ spec:
         app: backend
     spec:
       containers:
-      - image: ghcr.io/henryosei/vramcalc:fafb5144f876fe0925b2dda4614765ddce367e6b
+      - image: ghcr.io/henryosei/vramcalc:8492f272da70b09425167462982ce9aae565b26a
         name: vramcalc
         envFrom:
         - configMapRef:
